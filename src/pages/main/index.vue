@@ -10,14 +10,18 @@ import { useSharedMenu } from '@/composables/useSharedMenu'
 import { useCatStore } from '@/stores/cat'
 
 const appWindow = getCurrentWebviewWindow()
-const { pressedMouses, mousePosition, pressedKeys } = useDevice()
+const { pressedMouses, mousePosition, pressedKeys, startListening } = useDevice()
 const { backgroundImagePath, handleLoad, handleDestroy, handleResize, handleMouseDown, handleMouseMove, handleKeyDown } = useModel()
 const catStore = useCatStore()
 const { getSharedMenu } = useSharedMenu()
 
 const resizing = ref(false)
 
-onMounted(handleLoad)
+onMounted(() => {
+  startListening()
+
+  handleLoad()
+})
 
 onUnmounted(handleDestroy)
 

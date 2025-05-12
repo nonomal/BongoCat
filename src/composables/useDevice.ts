@@ -1,12 +1,10 @@
 import type { Ref } from 'vue'
 
+import { Channel, invoke } from '@tauri-apps/api/core'
 import { useDebounceFn } from '@vueuse/core'
 import { reactive, ref } from 'vue'
 
-import { LISTEN_KEY } from '../constants'
-
-import { useTauriListen } from './useTauriListen'
-
+import { INVOKE_KEY } from '@/constants'
 import { useCatStore } from '@/stores/cat'
 
 type MouseButtonValue = 'Left' | 'Right' | 'Middle'
@@ -49,6 +47,35 @@ export function useDevice() {
   const pressedKeys = ref<string[]>([])
   const catStore = useCatStore()
 
+  const startListening = () => {
+    const channel = new Channel<DeviceEvent>()
+
+    channel.onmessage = (message) => {
+      const { kind, value } = message
+
+      if (value === 'CapsLock') {
+        handlePress(pressedKeys, 'CapsLock')
+
+        return debounceCapsLockRelease()
+      }
+
+      switch (kind) {
+        case 'MousePress':
+          return handlePress(pressedMouses, value)
+        case 'MouseRelease':
+          return handleRelease(pressedMouses, value)
+        case 'MouseMove':
+          return Object.assign(mousePosition, value)
+        case 'KeyboardPress':
+          return handlePress(pressedKeys, normalizeKeyValue(value))
+        case 'KeyboardRelease':
+          return handleRelease(pressedKeys, normalizeKeyValue(value))
+      }
+    }
+
+    invoke(INVOKE_KEY.START_DEVICE_LISTENING, { channel })
+  }
+
   const debounceCapsLockRelease = useDebounceFn(() => {
     handleRelease(pressedKeys, 'CapsLock')
   }, 100)
@@ -76,32 +103,10 @@ export function useDevice() {
     return key
   }
 
-  useTauriListen<DeviceEvent>(LISTEN_KEY.DEVICE_CHANGED, ({ payload }) => {
-    const { kind, value } = payload
-
-    if (value === 'CapsLock') {
-      handlePress(pressedKeys, 'CapsLock')
-
-      return debounceCapsLockRelease()
-    }
-
-    switch (kind) {
-      case 'MousePress':
-        return handlePress(pressedMouses, value)
-      case 'MouseRelease':
-        return handleRelease(pressedMouses, value)
-      case 'MouseMove':
-        return Object.assign(mousePosition, value)
-      case 'KeyboardPress':
-        return handlePress(pressedKeys, normalizeKeyValue(value))
-      case 'KeyboardRelease':
-        return handleRelease(pressedKeys, normalizeKeyValue(value))
-    }
-  })
-
   return {
     pressedMouses,
     mousePosition,
     pressedKeys,
+    startListening,
   }
 }
