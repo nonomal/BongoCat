@@ -24,6 +24,7 @@
     "prevent-default:default",
     "autostart:default",
     "macos-permissions:default",
-    "dialog:default"
+    "dialog:default",
+    "websocket:default"
   ]
 }

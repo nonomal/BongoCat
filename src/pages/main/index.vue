@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { invoke } from '@tauri-apps/api/core'
 import { Menu } from '@tauri-apps/api/menu'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { useDebounceFn, useEventListener } from '@vueuse/core'
@@ -17,7 +18,11 @@ const { getSharedMenu } = useSharedMenu()
 
 const resizing = ref(false)
 
-onMounted(handleLoad)
+onMounted(() => {
+  handleLoad()
+
+  invoke('start_listening')
+})
 
 onUnmounted(handleDestroy)
 

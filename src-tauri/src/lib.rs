@@ -1,7 +1,7 @@
 mod core;
 
-use core::{device, prevent_default, setup};
-use tauri::{Manager, WindowEvent};
+use core::{device::start_listening, prevent_default, setup, websocket::start};
+use tauri::{async_runtime, Manager, WindowEvent};
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_custom_window::{
     show_preference_window, MAIN_WINDOW_LABEL, PREFERENCE_WINDOW_LABEL,
@@ -11,6 +11,12 @@ use tauri_plugin_custom_window::{
 pub fn run() {
     let app = tauri::Builder::default()
         .setup(|app| {
+            async_runtime::spawn(async {
+                if let Err(err) = start().await {
+                    log::error!("WebSocket connection failed: {}", err);
+                }
+            });
+
             let app_handle = app.handle();
 
             let main_window = app.get_webview_window(MAIN_WINDOW_LABEL).unwrap();
@@ -19,10 +25,9 @@ pub fn run() {
 
             setup::default(&app_handle, main_window.clone(), preference_window.clone());
 
-            device::start_listening(app_handle.clone());
-
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![start_listening])
         .plugin(tauri_plugin_custom_window::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
@@ -42,6 +47,7 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_macos_permissions::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_websocket::init())
         .on_window_event(|window, event| match event {
             WindowEvent::CloseRequested { api, .. } => {
                 let _ = window.hide();

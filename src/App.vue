@@ -10,6 +10,7 @@ import { RouterView } from 'vue-router'
 
 import { useTauriListen } from './composables/useTauriListen'
 import { useThemeVars } from './composables/useThemeVars'
+import { useWebsocket } from './composables/useWebsocket'
 import { useWindowState } from './composables/useWindowState'
 import { LISTEN_KEY } from './constants'
 import { hideWindow, showWindow } from './plugins/window'
@@ -25,16 +26,17 @@ const catStore = useCatStore()
 const generalStore = useGeneralStore()
 const appWindow = getCurrentWebviewWindow()
 const { isRestored, restoreState } = useWindowState()
+const { connect } = useWebsocket()
 
 onMounted(async () => {
   generateColorVars()
 
+  await connect()
   await appStore.$tauri.start()
   await modelStore.$tauri.start()
   await catStore.$tauri.start()
   await generalStore.$tauri.start()
-
-  restoreState()
+  await restoreState()
 })
 
 useTauriListen(LISTEN_KEY.SHOW_WINDOW, ({ payload }) => {

@@ -1,17 +1,15 @@
 import type { Ref } from 'vue'
 
 import { useDebounceFn } from '@vueuse/core'
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 
-import { LISTEN_KEY } from '../constants'
-
-import { useTauriListen } from './useTauriListen'
+import { useWebsocket } from './useWebsocket'
 
 import { useCatStore } from '@/stores/cat'
 
 type MouseButtonValue = 'Left' | 'Right' | 'Middle'
 
-interface MouseButtonEvent {
+interface MouseButtonMessage {
   kind: 'MousePress' | 'MouseRelease'
   value: MouseButtonValue
 }
@@ -21,17 +19,17 @@ interface MouseMoveValue {
   y: number
 }
 
-interface MouseMoveEvent {
+interface MouseMoveMessage {
   kind: 'MouseMove'
   value: MouseMoveValue
 }
 
-interface KeyboardEvent {
+interface KeyboardMessage {
   kind: 'KeyboardPress' | 'KeyboardRelease'
   value: string
 }
 
-type DeviceEvent = MouseButtonEvent | MouseMoveEvent | KeyboardEvent
+type DeviceMessage = MouseButtonMessage | MouseMoveMessage | KeyboardMessage
 
 function getSupportKeys() {
   const files = import.meta.glob('../assets/images/keys/*.png', { eager: true })
@@ -48,6 +46,7 @@ export function useDevice() {
   const mousePosition = reactive<MouseMoveValue>({ x: 0, y: 0 })
   const pressedKeys = ref<string[]>([])
   const catStore = useCatStore()
+  const { onMessage } = useWebsocket()
 
   const debounceCapsLockRelease = useDebounceFn(() => {
     handleRelease(pressedKeys, 'CapsLock')
@@ -76,27 +75,29 @@ export function useDevice() {
     return key
   }
 
-  useTauriListen<DeviceEvent>(LISTEN_KEY.DEVICE_CHANGED, ({ payload }) => {
-    const { kind, value } = payload
+  onMounted(() => {
+    onMessage<DeviceMessage>((message) => {
+      const { kind, value } = message
 
-    if (value === 'CapsLock') {
-      handlePress(pressedKeys, 'CapsLock')
+      if (value === 'CapsLock') {
+        handlePress(pressedKeys, 'CapsLock')
 
-      return debounceCapsLockRelease()
-    }
+        return debounceCapsLockRelease()
+      }
 
-    switch (kind) {
-      case 'MousePress':
-        return handlePress(pressedMouses, value)
-      case 'MouseRelease':
-        return handleRelease(pressedMouses, value)
-      case 'MouseMove':
-        return Object.assign(mousePosition, value)
-      case 'KeyboardPress':
-        return handlePress(pressedKeys, normalizeKeyValue(value))
-      case 'KeyboardRelease':
-        return handleRelease(pressedKeys, normalizeKeyValue(value))
-    }
+      switch (kind) {
+        case 'MousePress':
+          return handlePress(pressedMouses, value)
+        case 'MouseRelease':
+          return handleRelease(pressedMouses, value)
+        case 'MouseMove':
+          return Object.assign(mousePosition, value)
+        case 'KeyboardPress':
+          return handlePress(pressedKeys, normalizeKeyValue(value))
+        case 'KeyboardRelease':
+          return handleRelease(pressedKeys, normalizeKeyValue(value))
+      }
+    })
   })
 
   return {
